@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chrony NTP Dashboard</title>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  />
+  <style>
+    body { background-color: #f8f9fa; }
+    .card { box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+    .table-sm td, .table-sm th { vertical-align: middle; }
+    .badge-state { font-size: .85em; }
+    pre.sources-raw { font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1"><span role="img" aria-label="clock">&#128337;</span> Chrony NTP Dashboard</span>
+      <span class="navbar-text text-light">
+        Host: <strong>{{ hostname }}</strong>
+      </span>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4">
+
+    <!-- Summary row -->
+    <div class="row g-3 mb-4">
+      <div class="col-sm-6 col-xl-3">
+        <div class="card text-white bg-{{ sync_class }} h-100">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 opacity-75">Synchronization Status</h6>
+            <p class="card-text fs-5 fw-semibold mb-0">{{ sync_status }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Stratum</h6>
+            <p class="card-text fs-5 fw-semibold mb-0">
+              {{ tracking.get('stratum', 'N/A') }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Reference ID</h6>
+            <p class="card-text fs-5 fw-semibold mb-0 text-break">
+              {{ tracking.get('reference_id', 'N/A') }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">System Offset</h6>
+            <p class="card-text fs-5 fw-semibold mb-0">
+              {{ tracking.get('last_offset', 'N/A') }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracking details -->
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold">Tracking Details</div>
+          <div class="card-body p-0">
+            {% if tracking_err %}
+            <div class="alert alert-danger m-3 mb-0">{{ tracking_err }}</div>
+            {% elif tracking %}
+            <table class="table table-sm table-striped mb-0">
+              <tbody>
+                <tr><th scope="row" class="ps-3" style="width:45%">Hostname</th><td>{{ hostname }}</td></tr>
+                <tr><th scope="row" class="ps-3">Reference ID</th><td>{{ tracking.get('reference_id', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Stratum</th><td>{{ tracking.get('stratum', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Ref Time (UTC)</th><td>{{ tracking.get('ref_time', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">System Time</th><td>{{ tracking.get('system_time', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Last Offset</th><td>{{ tracking.get('last_offset', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">RMS Offset</th><td>{{ tracking.get('rms_offset', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Frequency</th><td>{{ tracking.get('frequency', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Root Delay</th><td>{{ tracking.get('root_delay', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Root Dispersion</th><td>{{ tracking.get('root_dispersion', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Update Interval</th><td>{{ tracking.get('update_interval', 'N/A') }}</td></tr>
+                <tr><th scope="row" class="ps-3">Leap Status</th><td>{{ tracking.get('leap_status', 'N/A') }}</td></tr>
+              </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted m-3">No tracking data available.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Root delay / dispersion quick card -->
+      <div class="col-12 col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold">Root Delay &amp; Dispersion</div>
+          <div class="card-body">
+            {% if tracking %}
+            <div class="row g-3">
+              <div class="col-6">
+                <div class="border rounded p-3 text-center h-100">
+                  <div class="text-muted small mb-1">Root Delay</div>
+                  <div class="fs-5 fw-semibold">{{ tracking.get('root_delay', 'N/A') }}</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 text-center h-100">
+                  <div class="text-muted small mb-1">Root Dispersion</div>
+                  <div class="fs-5 fw-semibold">{{ tracking.get('root_dispersion', 'N/A') }}</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 text-center h-100">
+                  <div class="text-muted small mb-1">RMS Offset</div>
+                  <div class="fs-5 fw-semibold">{{ tracking.get('rms_offset', 'N/A') }}</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 text-center h-100">
+                  <div class="text-muted small mb-1">Update Interval</div>
+                  <div class="fs-5 fw-semibold">{{ tracking.get('update_interval', 'N/A') }}</div>
+                </div>
+              </div>
+            </div>
+            {% elif tracking_err %}
+            <div class="alert alert-danger mb-0">{{ tracking_err }}</div>
+            {% else %}
+            <p class="text-muted mb-0">No data available.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NTP Sources -->
+    <div class="card mb-4">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        Upstream NTP Sources
+        <span class="badge bg-secondary">{{ sources | length }} source(s)</span>
+      </div>
+      <div class="card-body p-0">
+        {% if sources_err %}
+        <div class="alert alert-danger m-3 mb-0">{{ sources_err }}</div>
+        {% elif sources %}
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Mode</th>
+                <th>State</th>
+                <th>Name / IP</th>
+                <th>Stratum</th>
+                <th>Poll</th>
+                <th>Reach</th>
+                <th>Last Rx</th>
+                <th>Last Sample</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for src in sources %}
+              <tr>
+                <td>
+                  {% if src.mode == '^' %}
+                    <span role="img" title="Server" aria-label="Server">&#x1F5A5;</span>
+                  {% elif src.mode == '=' %}
+                    <span role="img" title="Peer" aria-label="Peer">&#x21C4;</span>
+                  {% else %}
+                    <span role="img" title="Local clock" aria-label="Local clock">&#x23F0;</span>
+                  {% endif %}
+                  {{ src.mode }}
+                </td>
+                <td>
+                  {% if src.state == '*' %}
+                    <span class="badge bg-success badge-state" title="Current synced source">* synced</span>
+                  {% elif src.state == '+' %}
+                    <span class="badge bg-primary badge-state" title="Combined source">+ combined</span>
+                  {% elif src.state == '-' %}
+                    <span class="badge bg-secondary badge-state" title="Not combined">- not combined</span>
+                  {% elif src.state == '?' %}
+                    <span class="badge bg-warning text-dark badge-state" title="Unreachable">? unreachable</span>
+                  {% elif src.state == 'x' %}
+                    <span class="badge bg-danger badge-state" title="Time may be in error">x error</span>
+                  {% elif src.state == '~' %}
+                    <span class="badge bg-warning text-dark badge-state" title="Time too variable">~ variable</span>
+                  {% else %}
+                    <span class="badge bg-secondary badge-state">{{ src.state }}</span>
+                  {% endif %}
+                </td>
+                <td class="font-monospace">{{ src.name }}</td>
+                <td>{{ src.stratum }}</td>
+                <td>{{ src.poll }}</td>
+                <td>{{ src.reach }}</td>
+                <td>{{ src.last_rx }}</td>
+                <td class="font-monospace small">{{ src.last_sample }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted m-3 mb-3">No NTP sources found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Connected NTP Clients -->
+    <div class="card mb-4">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        Connected NTP Clients
+        <span class="badge bg-secondary">{{ clients | length }} client(s)</span>
+      </div>
+      <div class="card-body p-0">
+        {% if clients_err %}
+        <div class="alert alert-danger m-3 mb-0">{{ clients_err }}</div>
+        {% elif clients %}
+        <div class="table-responsive">
+          <table class="table table-sm table-striped table-hover mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Hostname / IP</th>
+                <th>NTP Requests</th>
+                <th>NTP Drops</th>
+                <th>NTP Interval</th>
+                <th title="NTP interleaved mode flag">NTP IntLv</th>
+                <th>NTP Last</th>
+                <th>Cmd Requests</th>
+                <th>Cmd Drops</th>
+                <th>Cmd Interval</th>
+                <th>Cmd Last</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for client in clients %}
+              <tr>
+                <td class="font-monospace">{{ client.hostname }}</td>
+                <td>{{ client.ntp_requests }}</td>
+                <td>{{ client.ntp_drops }}</td>
+                <td>{{ client.ntp_interval }}</td>
+                <td>{{ client.ntp_intl }}</td>
+                <td>{{ client.ntp_last }}</td>
+                <td>{{ client.cmd_requests }}</td>
+                <td>{{ client.cmd_drops }}</td>
+                <td>{{ client.cmd_interval }}</td>
+                <td>{{ client.cmd_last }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted m-3 mb-3">No connected NTP clients found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /container -->
+
+  <footer class="text-center text-muted small py-3">
+    Chrony NTP Dashboard &mdash; data sourced from <code>chronyc</code>
+  </footer>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmRvK2fx4ei9z8a0ZIW2YBcqmW6p"
+    crossorigin="anonymous"
+  ></script>
+</body>
+</html>
