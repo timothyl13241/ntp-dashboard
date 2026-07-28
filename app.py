@@ -5,6 +5,9 @@ from flask import Flask, render_template
 
 app = Flask(__name__)
 
+# Minimum number of whitespace-separated fields expected in a chronyc clients
+# output data line (hostname + 9 columns).
+_MIN_CLIENT_FIELDS = 9
 
 _ALLOWED_COMMANDS = {
     ("chronyc", "tracking"),
@@ -129,7 +132,7 @@ def parse_clients(output):
         if not line:
             continue
         parts = line.split()
-        if len(parts) >= 9:
+        if len(parts) >= _MIN_CLIENT_FIELDS:
             clients.append(
                 {
                     "hostname": parts[0],
@@ -203,4 +206,6 @@ def index():
 
 
 if __name__ == "__main__":
+    # NOTE: Flask's built-in server is for development only.
+    # For production use a WSGI server such as Gunicorn or uWSGI.
     app.run(host="0.0.0.0", port=5000, debug=False)
