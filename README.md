@@ -6,7 +6,7 @@ A lightweight web dashboard that displays real-time Chrony NTP statistics using 
 
 ## Screenshot
 
-![Chrony NTP Dashboard](https://github.com/user-attachments/assets/b1543453-7a8f-4531-8345-64f8059e9512)
+![Chrony NTP Dashboard](https://github.com/user-attachments/assets/8edc1c39-334a-4d56-ad04-ceb3eb978c21)
 
 ## Features
 
