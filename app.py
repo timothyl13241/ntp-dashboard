@@ -6,14 +6,29 @@ from flask import Flask, render_template
 app = Flask(__name__)
 
 
+_ALLOWED_COMMANDS = {
+    ("chronyc", "tracking"),
+    ("chronyc", "sources", "-v"),
+    ("chronyc", "clients"),
+}
+
+
 def run_command(cmd):
-    """Run a shell command and return stdout, or an error string on failure."""
+    """Run a pre-approved chronyc command and return (stdout, error_string).
+
+    Only commands in ``_ALLOWED_COMMANDS`` are executed.  ``shell`` is
+    intentionally left at its default value of ``False`` so that the argument
+    list is passed directly to ``execvp`` without shell interpretation.
+    """
+    if tuple(cmd) not in _ALLOWED_COMMANDS:
+        return None, f"Command not allowed: {cmd}"
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=10,
+            shell=False,
         )
         if result.returncode != 0:
             return None, result.stderr.strip() or f"Command exited with code {result.returncode}"
@@ -68,8 +83,21 @@ def parse_sources(output):
         # Format: MS Name/IP  Stratum Poll Reach LastRx Last_sample
         # First two chars are mode/state markers
         m = re.match(
-            r"^([#^=])([\*\+\-\?x~\s])\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+)$",
+            r"""
+            ^
+            ([#^=])          # group 1: mode  (^=server, ==peer, #=local)
+            ([\*\+\-\?x~\s]) # group 2: state (*=synced, +=combined, …)
+            \s+
+            (\S+)            # group 3: name / IP address
+            \s+(\d+)         # group 4: stratum
+            \s+(\d+)         # group 5: poll interval (log2 seconds)
+            \s+(\d+)         # group 6: reachability register (octal)
+            \s+(\S+)         # group 7: time since last received sample
+            \s+(.+)          # group 8: last sample offset / error estimate
+            $
+            """,
             line,
+            re.VERBOSE,
         )
         if m:
             sources.append(
