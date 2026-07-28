@@ -21,7 +21,7 @@
 <body>
   <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1"><span aria-label="clock">&#128337;</span> Chrony NTP Dashboard</span>
+      <span class="navbar-brand mb-0 h1"><span role="img" aria-label="clock">&#128337;</span> Chrony NTP Dashboard</span>
       <span class="navbar-text text-light">
         Host: <strong>{{ hostname }}</strong>
       </span>
@@ -178,11 +178,11 @@
               <tr>
                 <td>
                   {% if src.mode == '^' %}
-                    <span title="Server" aria-label="Server">&#x1F5A5;</span>
+                    <span role="img" title="Server" aria-label="Server">&#x1F5A5;</span>
                   {% elif src.mode == '=' %}
-                    <span title="Peer" aria-label="Peer">&#x21C4;</span>
+                    <span role="img" title="Peer" aria-label="Peer">&#x21C4;</span>
                   {% else %}
-                    <span title="Local clock" aria-label="Local clock">&#x23F0;</span>
+                    <span role="img" title="Local clock" aria-label="Local clock">&#x23F0;</span>
                   {% endif %}
                   {{ src.mode }}
                 </td>
