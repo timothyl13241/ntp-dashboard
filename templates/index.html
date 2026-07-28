@@ -178,11 +178,11 @@
               <tr>
                 <td>
                   {% if src.mode == '^' %}
-                    <span title="Server">&#x1F5A5;</span>
+                    <span title="Server" aria-label="Server">&#x1F5A5;</span>
                   {% elif src.mode == '=' %}
-                    <span title="Peer">&#x21C4;</span>
+                    <span title="Peer" aria-label="Peer">&#x21C4;</span>
                   {% else %}
-                    <span title="Local clock">&#x23F0;</span>
+                    <span title="Local clock" aria-label="Local clock">&#x23F0;</span>
                   {% endif %}
                   {{ src.mode }}
                 </td>
