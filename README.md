@@ -4,6 +4,10 @@ Flask Frontend for Chrony NTP Server
 
 A lightweight web dashboard that displays real-time Chrony NTP statistics using Bootstrap 5 styling.
 
+## Screenshot
+
+![Chrony NTP Dashboard](https://github.com/user-attachments/assets/b1543453-7a8f-4531-8345-64f8059e9512)
+
 ## Features
 
 - Hostname display
