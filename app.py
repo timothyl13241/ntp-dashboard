@@ -17,6 +17,18 @@ _ALLOWED_COMMANDS = {
 }
 
 
+def extract_chronyc_error(output):
+    """Return chronyc daemon/client error text from output, if present."""
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = re.match(r"^([45]\d{2})\s+(.+)$", line)
+        if m:
+            return f"{m.group(1)} {m.group(2).strip()}"
+    return None
+
+
 def run_command(cmd):
     """Run a pre-approved chronyc command and return (stdout, error_string).
 
@@ -191,7 +203,11 @@ def index():
     clients_out, clients_err = run_command(["chronyc", "clients"])
     clients = []
     if clients_out:
-        clients = parse_clients(clients_out)
+        clients_cmd_err = extract_chronyc_error(clients_out)
+        if clients_cmd_err:
+            clients_err = clients_cmd_err
+        else:
+            clients = parse_clients(clients_out)
 
     return render_template(
         "index.html",
