@@ -1,7 +1,7 @@
 import re
 
 # Minimum number of whitespace-separated fields required in a chronyc clients
-# output data line. The format has 9 required fields (indices 0–8) and one
+# output data line. The format has 9 required fields (indices 0-8) and one
 # optional field (index 9, cmd_last) which is accessed conditionally.
 _MIN_CLIENT_FIELDS = 9
 

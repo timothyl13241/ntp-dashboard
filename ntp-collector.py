@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 
-APP_DIR = os.environ.get("NTP_APP_DIR", "/opt/ntp-dashboard")
+APP_DIR = os.environ.get("NTP_APP_DIR", os.getcwd())
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 
@@ -58,14 +58,19 @@ def run_command(cmd):
     return output, None
 
 
+def get_status_group_id():
+    """Return the configured status group id, or None if it does not exist."""
+    try:
+        return grp.getgrnam(STATUS_GROUP).gr_gid
+    except KeyError:
+        return None
+
+
 def ensure_runtime_dir(path):
     """Create the runtime directory and apply restrictive permissions."""
     os.makedirs(path, mode=0o750, exist_ok=True)
-    try:
-        gid = grp.getgrnam(STATUS_GROUP).gr_gid
-    except KeyError:
-        gid = -1
-    if gid != -1:
+    gid = get_status_group_id()
+    if gid is not None:
         try:
             os.chown(path, -1, gid)
         except PermissionError:
@@ -114,11 +119,8 @@ def write_status(payload):
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
-        try:
-            gid = grp.getgrnam(STATUS_GROUP).gr_gid
-        except KeyError:
-            gid = -1
-        if gid != -1:
+        gid = get_status_group_id()
+        if gid is not None:
             try:
                 os.chown(temp_path, -1, gid)
             except PermissionError:

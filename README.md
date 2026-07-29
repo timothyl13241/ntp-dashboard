@@ -67,6 +67,8 @@ export NTP_STATUS_FILE=/path/to/status.json
 python app.py
 ```
 
+Set `NTP_STATUS_MAX_AGE=-1` to disable stale-file checks during development if you want to keep serving a static fixture.
+
 > **Note:** `chronyc clients` requires chrony to be configured with the
 > `clientloglimit` directive (and `cmdallow` for remote access). If chrony is
 > not installed the dashboard still loads but shows an error message in each
@@ -105,6 +107,7 @@ Copy the application and unit files into place:
 
 ```bash
 sudo install -m 0755 ntp-collector.py /usr/local/bin/ntp-collector.py
+# the collector imports parser code from the application directory
 sudo cp ntp-dashboard.service /etc/systemd/system/ntp-dashboard.service
 sudo cp ntp-collector.service /etc/systemd/system/ntp-collector.service
 sudo cp ntp-collector.timer /etc/systemd/system/ntp-collector.timer
