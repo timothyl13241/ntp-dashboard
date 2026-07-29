@@ -103,11 +103,13 @@ sudo chown -R ntpdashboard:ntpdashboard /opt/ntp-dashboard
 
 ### 4. Install the collector and service units
 
-Copy the application and unit files into place:
+Copy the application into `/opt/ntp-dashboard` so `chrony_parse.py` stays beside `app.py`, then install the collector and unit files:
 
 ```bash
+sudo install -d -m 0755 /opt/ntp-dashboard
+sudo cp app.py chrony_parse.py requirements.txt -t /opt/ntp-dashboard/
+sudo cp -r templates /opt/ntp-dashboard/
 sudo install -m 0755 ntp-collector.py /usr/local/bin/ntp-collector.py
-# the collector imports parser code from the application directory
 sudo cp ntp-dashboard.service /etc/systemd/system/ntp-dashboard.service
 sudo cp ntp-collector.service /etc/systemd/system/ntp-collector.service
 sudo cp ntp-collector.timer /etc/systemd/system/ntp-collector.timer

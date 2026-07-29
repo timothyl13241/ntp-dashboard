@@ -115,9 +115,12 @@ def build_status():
 
 def write_status(payload):
     """Atomically write the status JSON to disk."""
-    ensure_runtime_dir(os.path.dirname(STATUS_FILE))
+    status_dir = os.path.dirname(STATUS_FILE)
+    ensure_runtime_dir(status_dir)
+    if not os.access(status_dir, os.W_OK | os.X_OK):
+        raise PermissionError(f"Status directory is not writable: {status_dir}")
     # mkstemp() starts with owner-only permissions until we set the final mode.
-    fd, temp_path = tempfile.mkstemp(prefix="status.", suffix=".json", dir=os.path.dirname(STATUS_FILE))
+    fd, temp_path = tempfile.mkstemp(prefix="status.", suffix=".json", dir=status_dir)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
