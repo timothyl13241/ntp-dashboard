@@ -35,7 +35,8 @@ def run_command(cmd):
             shell=False,
         )
         if result.returncode != 0:
-            return None, result.stderr.strip() or f"Command exited with code {result.returncode}"
+            error_text = result.stderr.strip() or result.stdout.strip()
+            return None, error_text or f"Command exited with code {result.returncode}"
         return result.stdout, None
     except FileNotFoundError:
         return None, "chronyc not found – is chrony installed?"
