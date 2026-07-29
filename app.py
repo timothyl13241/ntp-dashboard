@@ -63,11 +63,15 @@ def load_status():
     if not isinstance(errors, dict):
         return _error_payload("Status file is missing the errors object", payload.get("hostname"))
 
+    tracking_data = payload.get("tracking")
+    sources_data = payload.get("sources")
+    clients_data = payload.get("clients")
+
     return {
         "hostname": payload.get("hostname") or socket.gethostname(),
-        "tracking": payload.get("tracking") if isinstance(payload.get("tracking"), dict) else {},
-        "sources": payload.get("sources") if isinstance(payload.get("sources"), list) else [],
-        "clients": payload.get("clients") if isinstance(payload.get("clients"), list) else [],
+        "tracking": tracking_data if isinstance(tracking_data, dict) else {},
+        "sources": sources_data if isinstance(sources_data, list) else [],
+        "clients": clients_data if isinstance(clients_data, list) else [],
         "tracking_err": errors.get("tracking"),
         "sources_err": errors.get("sources"),
         "clients_err": errors.get("clients"),
