@@ -1,0 +1,13 @@
+[Unit]
+Description=NTP Chrony Dashboard
+After=network.target chrony.service
+
+[Service]
+WorkingDirectory=/opt/ntp-dashboard
+ExecStart=/usr/bin/python3 /opt/ntp-dashboard/app.py
+Restart=always
+User=ntpdashboard
+Group=ntpdashboard
+
+[Install]
+WantedBy=multi-user.target
