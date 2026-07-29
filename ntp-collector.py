@@ -37,7 +37,6 @@ def run_command(cmd):
             capture_output=True,
             text=True,
             timeout=10,
-            shell=False,
         )
     except FileNotFoundError:
         return None, "chronyc not found – is chrony installed?"
@@ -114,6 +113,7 @@ def build_status():
 def write_status(payload):
     """Atomically write the status JSON to disk."""
     ensure_runtime_dir(os.path.dirname(STATUS_FILE))
+    # mkstemp() starts with owner-only permissions until we set the final mode.
     fd, temp_path = tempfile.mkstemp(prefix="status.", suffix=".json", dir=os.path.dirname(STATUS_FILE))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:

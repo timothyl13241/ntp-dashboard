@@ -8,7 +8,20 @@ from flask import Flask, render_template
 app = Flask(__name__)
 
 STATUS_FILE = os.environ.get("NTP_STATUS_FILE", "/run/ntp-dashboard/status.json")
-STATUS_MAX_AGE = int(os.environ.get("NTP_STATUS_MAX_AGE", "180"))
+
+
+def _load_status_max_age():
+    """Return the configured staleness threshold in seconds."""
+    value = os.environ.get("NTP_STATUS_MAX_AGE", "180")
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid NTP_STATUS_MAX_AGE={value!r}; expected an integer number of seconds"
+        ) from exc
+
+
+STATUS_MAX_AGE = _load_status_max_age()
 # Negative STATUS_MAX_AGE values disable stale-file checks.
 
 
@@ -16,6 +29,7 @@ def _parse_timestamp(value):
     """Parse an ISO timestamp string into an aware datetime."""
     if not value:
         raise ValueError("Missing collected_at timestamp")
+    # Support the UTC Z suffix while keeping compatibility with Python 3.8+.
     normalized = value.replace("Z", "+00:00")
     parsed = dt.datetime.fromisoformat(normalized)
     if parsed.tzinfo is None:
