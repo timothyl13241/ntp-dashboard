@@ -10,3 +10,4 @@ WorkingDirectory=/opt/ntp-dashboard
 ExecStart=/usr/local/bin/ntp-collector.py
 RuntimeDirectory=ntp-dashboard
 RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
