@@ -126,8 +126,10 @@ def write_status(payload):
         os.chmod(temp_path, 0o640)
         os.replace(temp_path, STATUS_FILE)
     finally:
-        if os.path.exists(temp_path):
+        try:
             os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
 
 
 def main():

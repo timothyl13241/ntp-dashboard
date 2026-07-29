@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 STATUS_FILE = os.environ.get("NTP_STATUS_FILE", "/run/ntp-dashboard/status.json")
 STATUS_MAX_AGE = int(os.environ.get("NTP_STATUS_MAX_AGE", "180"))
+# Negative STATUS_MAX_AGE values disable stale-file checks.
 
 
 def _parse_timestamp(value):

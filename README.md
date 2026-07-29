@@ -84,14 +84,14 @@ sudo useradd --system --no-create-home --shell /usr/sbin/nologin ntpdashboard
 
 ### 2. Allow the collector to run `chronyc`
 
-On Debian/Ubuntu, chrony uses an authenticated Unix socket owned by the `_chrony` group:
+On Debian/Ubuntu, chrony typically uses an authenticated Unix socket owned by the `_chrony` group:
 
 ```bash
 ls -l /run/chrony/
 # -rw-r----- 1 root _chrony /run/chrony/chronyd.sock
 ```
 
-If your chronyd socket is group-restricted, ensure the privileged collector runs with enough access. The provided `ntp-collector.service` runs as `root`, so the Flask app itself does not need `_chrony` membership.
+Verify the socket name on your host, then ensure the privileged collector runs with enough access. The provided `ntp-collector.service` runs as `root`, so the Flask app itself does not need `_chrony` membership.
 
 ### 3. Change ownership of the application
 
