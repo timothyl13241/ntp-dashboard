@@ -29,7 +29,7 @@ def _parse_timestamp(value):
     """Parse an ISO timestamp string into an aware datetime."""
     if not value:
         raise ValueError("Missing collected_at timestamp")
-    # Support the UTC Z suffix while keeping compatibility with Python 3.8+.
+    # Python 3.8 `fromisoformat()` does not accept a trailing Z UTC suffix.
     normalized = value.replace("Z", "+00:00")
     parsed = dt.datetime.fromisoformat(normalized)
     if parsed.tzinfo is None:

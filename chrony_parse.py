@@ -109,7 +109,7 @@ def parse_clients(output):
                     "ntp_requests": parts[1],
                     "ntp_drops": parts[2],
                     "ntp_interval": parts[3],
-                    "ntp_intl": parts[4],
+                    "ntp_intlv": parts[4],
                     "ntp_last": parts[5],
                     "cmd_requests": parts[6],
                     "cmd_drops": parts[7],

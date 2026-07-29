@@ -2,6 +2,7 @@
 import datetime as dt
 import grp
 import json
+import logging
 import os
 import socket
 import subprocess
@@ -22,6 +23,8 @@ from chrony_parse import (
 RUN_DIR = os.environ.get("NTP_STATUS_DIR", "/run/ntp-dashboard")
 STATUS_FILE = os.environ.get("NTP_STATUS_FILE", os.path.join(RUN_DIR, "status.json"))
 STATUS_GROUP = os.environ.get("NTP_STATUS_GROUP", "ntpdashboard")
+LOGGER = logging.getLogger(__name__)
+
 COMMANDS = {
     "tracking": ["chronyc", "tracking"],
     "sources": ["chronyc", "sources", "-v"],
@@ -73,7 +76,7 @@ def ensure_runtime_dir(path):
         try:
             os.chown(path, -1, gid)
         except PermissionError:
-            pass
+            LOGGER.warning("Unable to change group ownership for %s", path)
     os.chmod(path, 0o750)
 
 
@@ -124,7 +127,7 @@ def write_status(payload):
             try:
                 os.chown(temp_path, -1, gid)
             except PermissionError:
-                pass
+                LOGGER.warning("Unable to change group ownership for %s", temp_path)
         os.chmod(temp_path, 0o640)
         os.replace(temp_path, STATUS_FILE)
     except Exception:

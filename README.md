@@ -90,7 +90,7 @@ On Debian/Ubuntu, chrony typically uses an authenticated Unix socket owned by th
 
 ```bash
 ls -l /run/chrony/
-# look for a root:_chrony control socket with group read/write permissions
+# look for a root:_chrony control socket such as srw-rw----
 ```
 
 Verify the control socket name and permissions on your host, then ensure the privileged collector runs with enough access. The provided `ntp-collector.service` runs as `root`, so the Flask app itself does not need `_chrony` membership.
