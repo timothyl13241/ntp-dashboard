@@ -17,6 +17,20 @@ A lightweight web dashboard that displays real-time Chrony NTP statistics using 
 - Upstream NTP sources (`chronyc sources -v`)
 - Connected NTP clients (`chronyc clients`)
 
+## Architecture
+
+The dashboard uses a privileged collector that writes a JSON snapshot to disk, and the Flask app serves that cached data as an unprivileged user.
+
+```text
+chronyd
+   |
+root collector (systemd timer)
+   |
+/run/ntp-dashboard/status.json
+   |
+Flask dashboard (ntpdashboard)
+```
+
 ## Requirements
 
 - Python 3.8+
@@ -46,6 +60,13 @@ python app.py
 
 The dashboard is served on **http://0.0.0.0:5000** by default.
 
+For local development without a live collector, you can point the app at a fixture file:
+
+```bash
+export NTP_STATUS_FILE=/path/to/status.json
+python app.py
+```
+
 > **Note:** `chronyc clients` requires chrony to be configured with the
 > `clientloglimit` directive (and `cmdallow` for remote access). If chrony is
 > not installed the dashboard still loads but shows an error message in each
@@ -53,7 +74,7 @@ The dashboard is served on **http://0.0.0.0:5000** by default.
 
 ## Running as a non-root user
 
-It is recommended to run the dashboard under a dedicated unprivileged service account rather than as root.
+It is recommended to run the dashboard under a dedicated unprivileged service account rather than as root. In this architecture, only the collector needs permission to talk to chronyd; the Flask app reads `/run/ntp-dashboard/status.json`.
 
 ### 1. Create a dedicated service user
 
@@ -61,26 +82,16 @@ It is recommended to run the dashboard under a dedicated unprivileged service ac
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin ntpdashboard
 ```
 
-### 2. Allow the user to run `chronyc`
+### 2. Allow the collector to run `chronyc`
 
 On Debian/Ubuntu, chrony uses an authenticated Unix socket owned by the `_chrony` group:
 
 ```bash
 ls -l /run/chrony/
-# -rw-r----- 1 root _chrony /run/chrony/chronyc.sock
+# -rw-r----- 1 root _chrony /run/chrony/chronyd.sock
 ```
 
-Add the dashboard user to the `_chrony` group:
-
-```bash
-sudo usermod -aG _chrony ntpdashboard
-```
-
-Verify with:
-
-```bash
-groups ntpdashboard
-```
+If your chronyd socket is group-restricted, ensure the privileged collector runs with enough access. The provided `ntp-collector.service` runs as `root`, so the Flask app itself does not need `_chrony` membership.
 
 ### 3. Change ownership of the application
 
@@ -88,26 +99,45 @@ groups ntpdashboard
 sudo chown -R ntpdashboard:ntpdashboard /opt/ntp-dashboard
 ```
 
-### 4. Configure and enable the systemd service
+### 4. Install the collector and service units
 
-An example unit file is provided at `ntp-dashboard.service`. Copy it to the systemd directory and enable it:
+Copy the application and unit files into place:
 
 ```bash
+sudo install -m 0755 ntp-collector.py /usr/local/bin/ntp-collector.py
 sudo cp ntp-dashboard.service /etc/systemd/system/ntp-dashboard.service
+sudo cp ntp-collector.service /etc/systemd/system/ntp-collector.service
+sudo cp ntp-collector.timer /etc/systemd/system/ntp-collector.timer
 sudo systemctl daemon-reload
+```
+
+### 5. Start the collector and dashboard
+
+Enable the timer and start the dashboard service:
+
+```bash
+sudo systemctl enable --now ntp-collector.timer
+sudo systemctl start ntp-collector.service
 sudo systemctl enable --now ntp-dashboard
 ```
 
-To restart the service (e.g. after updating the application):
+To refresh the cache manually:
+
+```bash
+sudo systemctl start ntp-collector.service
+```
+
+To restart the dashboard after updating the application:
 
 ```bash
 sudo systemctl restart ntp-dashboard
 ```
 
-If you modify the unit file itself, reload systemd first:
+If you modify any unit file, reload systemd first:
 
 ```bash
 sudo systemctl daemon-reload
+sudo systemctl restart ntp-collector.service
 sudo systemctl restart ntp-dashboard
 ```
 
@@ -115,9 +145,13 @@ sudo systemctl restart ntp-dashboard
 
 ```
 ntp-dashboard/
-├── app.py                  # Flask application & chronyc parsers
-├── requirements.txt        # Python dependencies
+├── app.py                  # Flask application that reads cached status JSON
+├── chrony_parse.py         # Shared chronyc output parsers
+├── ntp-collector.py        # Privileged collector script
+├── ntp-collector.service   # Collector one-shot service
+├── ntp-collector.timer     # Collector refresh timer
 ├── ntp-dashboard.service   # Example systemd unit file
+├── requirements.txt        # Python dependencies
 ├── templates/
 │   └── index.html          # Bootstrap 5 dashboard template
 └── README.md

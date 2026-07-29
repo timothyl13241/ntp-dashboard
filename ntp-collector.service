@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect Chrony status for NTP Dashboard
+After=network.target chrony.service
+
+[Service]
+Type=oneshot
+User=root
+Group=ntpdashboard
+WorkingDirectory=/opt/ntp-dashboard
+ExecStart=/usr/local/bin/ntp-collector.py
+RuntimeDirectory=ntp-dashboard
+RuntimeDirectoryMode=0750

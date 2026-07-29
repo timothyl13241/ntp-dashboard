@@ -1,183 +1,87 @@
+import datetime as dt
+import json
+import os
 import socket
-import subprocess
-import re
+
 from flask import Flask, render_template
 
 app = Flask(__name__)
 
-# Minimum number of whitespace-separated fields required in a chronyc clients
-# output data line.  The format has 9 required fields (indices 0–8) and one
-# optional field (index 9, cmd_last) which is accessed conditionally.
-_MIN_CLIENT_FIELDS = 9
-
-_ALLOWED_COMMANDS = {
-    ("chronyc", "tracking"),
-    ("chronyc", "sources", "-v"),
-    ("chronyc", "clients"),
-}
+STATUS_FILE = os.environ.get("NTP_STATUS_FILE", "/run/ntp-dashboard/status.json")
+STATUS_MAX_AGE = int(os.environ.get("NTP_STATUS_MAX_AGE", "180"))
 
 
-def extract_chronyc_error(output):
-    """Return chronyc daemon/client error text from output, if present."""
-    for line in output.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if re.match(r"^[45]\d{2}\s+\S", line):
-            return line
-    return None
+def _parse_timestamp(value):
+    """Parse an ISO timestamp string into an aware datetime."""
+    if not value:
+        raise ValueError("Missing collected_at timestamp")
+    normalized = value.replace("Z", "+00:00")
+    parsed = dt.datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed
 
 
-def run_command(cmd):
-    """Run a pre-approved chronyc command and return (stdout, error_string).
-
-    Only commands in ``_ALLOWED_COMMANDS`` are executed.  ``shell`` is
-    intentionally left at its default value of ``False`` so that the argument
-    list is passed directly to ``execvp`` without shell interpretation.
-    """
-    if tuple(cmd) not in _ALLOWED_COMMANDS:
-        return None, f"Command not allowed: {cmd}"
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=10,
-            shell=False,
-        )
-        if result.returncode != 0:
-            error_text = result.stderr.strip() or result.stdout.strip()
-            return None, error_text or f"Command exited with code {result.returncode}"
-        return result.stdout, None
-    except FileNotFoundError:
-        return None, "chronyc not found – is chrony installed?"
-    except subprocess.TimeoutExpired:
-        return None, "Command timed out"
-    except Exception as exc:
-        return None, str(exc)
-
-
-def parse_tracking(output):
-    """Parse the output of 'chronyc tracking' into a dict."""
-    data = {}
-    patterns = {
-        "reference_id": r"^Reference ID\s+:\s+(.+)$",
-        "stratum": r"^Stratum\s+:\s+(\d+)$",
-        "ref_time": r"^Ref time \(UTC\)\s+:\s+(.+)$",
-        "system_time": r"^System time\s+:\s+(.+)$",
-        "last_offset": r"^Last offset\s+:\s+(.+)$",
-        "rms_offset": r"^RMS offset\s+:\s+(.+)$",
-        "frequency": r"^Frequency\s+:\s+(.+)$",
-        "root_delay": r"^Root delay\s+:\s+(.+)$",
-        "root_dispersion": r"^Root dispersion\s+:\s+(.+)$",
-        "update_interval": r"^Update interval\s+:\s+(.+)$",
-        "leap_status": r"^Leap status\s+:\s+(.+)$",
+def _error_payload(message, hostname=None):
+    """Return a status payload that surfaces the same error in all sections."""
+    return {
+        "hostname": hostname or socket.gethostname(),
+        "tracking": {},
+        "sources": [],
+        "clients": [],
+        "tracking_err": message,
+        "sources_err": message,
+        "clients_err": message,
     }
-    for line in output.splitlines():
-        line = line.strip()
-        for key, pattern in patterns.items():
-            m = re.match(pattern, line)
-            if m:
-                data[key] = m.group(1).strip()
-    return data
 
 
-def parse_sources(output):
-    """Parse the output of 'chronyc sources -v' into a list of dicts."""
-    sources = []
-    # Find the data lines – they start after the '===...' separator
-    in_data = False
-    for line in output.splitlines():
-        if re.match(r"^=+$", line.strip()):
-            in_data = True
-            continue
-        if not in_data:
-            continue
-        line = line.strip()
-        if not line:
-            continue
-        # Format: MS Name/IP  Stratum Poll Reach LastRx Last_sample
-        # First two chars are mode/state markers
-        m = re.match(
-            r"""
-            ^
-            ([#^=])          # group 1: mode  (^=server, ==peer, #=local)
-            ([\*\+\-\?x~\s]) # group 2: state (*=synced, +=combined, …)
-            \s+
-            (\S+)            # group 3: name / IP address
-            \s+(\d+)         # group 4: stratum
-            \s+(\d+)         # group 5: poll interval (log2 seconds)
-            \s+(\d+)         # group 6: reachability register (octal)
-            \s+(\S+)         # group 7: time since last received sample
-            \s+(.+)          # group 8: last sample offset / error estimate
-            $
-            """,
-            line,
-            re.VERBOSE,
+def load_status():
+    """Load dashboard status from the collector JSON file."""
+    if not os.path.exists(STATUS_FILE):
+        return _error_payload(f"Status file not found: {STATUS_FILE}")
+
+    try:
+        with open(STATUS_FILE, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        return _error_payload(f"Unable to read status file: {exc}")
+
+    try:
+        collected_at = _parse_timestamp(payload.get("collected_at"))
+    except (TypeError, ValueError) as exc:
+        return _error_payload(f"Invalid status file timestamp: {exc}", payload.get("hostname"))
+
+    age = (dt.datetime.now(dt.timezone.utc) - collected_at).total_seconds()
+    if STATUS_MAX_AGE >= 0 and age > STATUS_MAX_AGE:
+        return _error_payload(
+            f"Status file is stale ({int(age)} seconds old)",
+            payload.get("hostname"),
         )
-        if m:
-            sources.append(
-                {
-                    "mode": m.group(1),
-                    "state": m.group(2).strip(),
-                    "name": m.group(3),
-                    "stratum": m.group(4),
-                    "poll": m.group(5),
-                    "reach": m.group(6),
-                    "last_rx": m.group(7),
-                    "last_sample": m.group(8).strip(),
-                }
-            )
-    return sources
 
+    errors = payload.get("errors")
+    if not isinstance(errors, dict):
+        return _error_payload("Status file is missing the errors object", payload.get("hostname"))
 
-def parse_clients(output):
-    """Parse the output of 'chronyc clients' into a list of dicts."""
-    clients = []
-    in_data = False
-    for line in output.splitlines():
-        if re.match(r"^=+$", line.strip()):
-            in_data = True
-            continue
-        if not in_data:
-            continue
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split()
-        if len(parts) >= _MIN_CLIENT_FIELDS:
-            clients.append(
-                {
-                    "hostname": parts[0],
-                    "ntp_requests": parts[1],
-                    "ntp_drops": parts[2],
-                    "ntp_interval": parts[3],
-                    "ntp_intl": parts[4],
-                    "ntp_last": parts[5],
-                    "cmd_requests": parts[6],
-                    "cmd_drops": parts[7],
-                    "cmd_interval": parts[8],
-                    "cmd_last": parts[9] if len(parts) > 9 else "-",
-                }
-            )
-    return clients
+    return {
+        "hostname": payload.get("hostname") or socket.gethostname(),
+        "tracking": payload.get("tracking") if isinstance(payload.get("tracking"), dict) else {},
+        "sources": payload.get("sources") if isinstance(payload.get("sources"), list) else [],
+        "clients": payload.get("clients") if isinstance(payload.get("clients"), list) else [],
+        "tracking_err": errors.get("tracking"),
+        "sources_err": errors.get("sources"),
+        "clients_err": errors.get("clients"),
+    }
 
 
 @app.route("/")
 def index():
-    hostname = socket.gethostname()
+    status = load_status()
+    tracking = status["tracking"]
 
-    # Tracking info
-    tracking_out, tracking_err = run_command(["chronyc", "tracking"])
-    tracking = {}
-    if tracking_out:
-        tracking = parse_tracking(tracking_out)
-
-    # Determine sync status from leap_status / stratum
     sync_status = "Unknown"
     sync_class = "secondary"
-    if tracking_err:
-        sync_status = f"Error: {tracking_err}"
+    if status["tracking_err"]:
+        sync_status = f"Error: {status['tracking_err']}"
         sync_class = "danger"
     elif tracking:
         leap = tracking.get("leap_status", "").lower()
@@ -192,37 +96,19 @@ def index():
             sync_status = leap.capitalize() if leap else "Unknown"
             sync_class = "warning"
 
-    # Sources
-    sources_out, sources_err = run_command(["chronyc", "sources", "-v"])
-    sources = []
-    if sources_out:
-        sources = parse_sources(sources_out)
-
-    # Clients
-    clients_out, clients_err = run_command(["chronyc", "clients"])
-    clients = []
-    if clients_out:
-        clients_cmd_err = extract_chronyc_error(clients_out)
-        if clients_cmd_err:
-            clients_err = clients_cmd_err
-        else:
-            clients = parse_clients(clients_out)
-
     return render_template(
         "index.html",
-        hostname=hostname,
+        hostname=status["hostname"],
         sync_status=sync_status,
         sync_class=sync_class,
         tracking=tracking,
-        tracking_err=tracking_err,
-        sources=sources,
-        sources_err=sources_err,
-        clients=clients,
-        clients_err=clients_err,
+        tracking_err=status["tracking_err"],
+        sources=status["sources"],
+        sources_err=status["sources_err"],
+        clients=status["clients"],
+        clients_err=status["clients_err"],
     )
 
 
 if __name__ == "__main__":
-    # NOTE: Flask's built-in server is for development only.
-    # For production use a WSGI server such as Gunicorn or uWSGI.
     app.run(host="0.0.0.0", port=5000, debug=False)
