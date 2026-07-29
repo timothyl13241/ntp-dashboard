@@ -23,9 +23,9 @@ def extract_chronyc_error(output):
         line = line.strip()
         if not line:
             continue
-        m = re.match(r"^([45]\d{2})\s+(.+)$", line)
+        m = re.match(r"^((?:4|5)\d{2})\s+(.+)$", line)
         if m:
-            return f"{m.group(1)} {m.group(2).strip()}"
+            return f"{m.group(1)} {m.group(2)}"
     return None
 
 
