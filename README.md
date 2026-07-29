@@ -98,7 +98,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now ntp-dashboard
 ```
 
-To restart after a configuration change:
+To restart the service (e.g. after updating the application):
+
+```bash
+sudo systemctl restart ntp-dashboard
+```
+
+If you modify the unit file itself, reload systemd first:
 
 ```bash
 sudo systemctl daemon-reload
