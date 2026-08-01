@@ -139,6 +139,12 @@
                 <div class="fs-4 fw-semibold font-monospace" id="clock-local">--:--:--</div>
               </div>
             </div>
+            <div class="text-center text-muted small mt-2">
+              Server sync offset: <span id="clock-offset-ms">N/A</span>
+            </div>
+            <div class="text-center text-muted small">
+              Time source: server (auto-resample every 60s, <span id="clock-resample-status">pending</span>)
+            </div>
           </div>
         </div>
         <div class="card h-100">
@@ -316,21 +322,64 @@
   <script>
     (function () {
       function pad(n) { return String(n).padStart(2, '0'); }
-      function tick() {
-        var now = new Date();
-        var utc = pad(now.getUTCHours()) + ':' + pad(now.getUTCMinutes()) + ':' + pad(now.getUTCSeconds());
-        var local = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-        document.getElementById('clock-utc').textContent = utc;
-        document.getElementById('clock-local').textContent = local;
+      function formatHHMMSS(d, useUTC) {
+        var h = useUTC ? d.getUTCHours() : d.getHours();
+        var m = useUTC ? d.getUTCMinutes() : d.getMinutes();
+        var s = useUTC ? d.getUTCSeconds() : d.getSeconds();
+        return pad(h) + ':' + pad(m) + ':' + pad(s);
       }
+      var serverIso = "{{ server_now_utc_iso }}";
+      var serverNowAtLoad = new Date(serverIso);
+      var clientNowAtLoad = new Date();
+      var offsetMs = serverNowAtLoad.getTime() - clientNowAtLoad.getTime();
+      var offsetEl = document.getElementById('clock-offset-ms');
+      var resampleEl = document.getElementById('clock-resample-status');
+
+      function tick() {
+        var anchoredNow = new Date(Date.now() + offsetMs);
+        document.getElementById('clock-utc').textContent = formatHHMMSS(anchoredNow, true);
+        document.getElementById('clock-local').textContent = formatHHMMSS(anchoredNow, false);
+      }
+
+      function renderOffset() {
+        if (!offsetEl) return;
+        var sign = offsetMs >= 0 ? '+' : '-';
+        offsetEl.textContent = sign + Math.abs(Math.trunc(offsetMs)) + ' ms';
+      }
+
+      async function resampleServerTime() {
+        try {
+          var response = await fetch('/api/server-time', { cache: 'no-store' });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          var data = await response.json();
+          var sampledServer = new Date(data.server_now_utc_iso);
+          if (isNaN(sampledServer.getTime())) throw new Error('Invalid timestamp');
+          offsetMs = sampledServer.getTime() - Date.now();
+          renderOffset();
+          if (resampleEl) resampleEl.textContent = 'resampled';
+        } catch (err) {
+          if (resampleEl) resampleEl.textContent = 'resample failed';
+        }
+      }
+
       var tzEl = document.getElementById('clock-tz');
       try {
         tzEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
       } catch (e) {
         tzEl.textContent = 'Local';
       }
-      tick();
-      setInterval(tick, 1000);
+
+      if (isNaN(serverNowAtLoad.getTime())) {
+        document.getElementById('clock-utc').textContent = '--:--:--';
+        document.getElementById('clock-local').textContent = '--:--:--';
+        if (offsetEl) offsetEl.textContent = 'N/A';
+        if (resampleEl) resampleEl.textContent = 'invalid initial timestamp';
+      } else {
+        renderOffset();
+        tick();
+        setInterval(tick, 1000);
+        setInterval(resampleServerTime, 60000);
+      }
     })();
   </script>
   <script>
