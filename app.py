@@ -3,7 +3,7 @@ import json
 import os
 import socket
 
-from flask import Flask, render_template
+from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
 
@@ -96,6 +96,7 @@ def load_status():
 def index():
     status = load_status()
     tracking = status["tracking"]
+    server_now_utc = dt.datetime.now(dt.timezone.utc)
 
     sync_status = "Unknown"
     sync_class = "secondary"
@@ -118,6 +119,7 @@ def index():
     return render_template(
         "index.html",
         hostname=status["hostname"],
+        server_now_utc_iso=server_now_utc.isoformat().replace("+00:00", "Z"),
         sync_status=sync_status,
         sync_class=sync_class,
         tracking=tracking,
@@ -126,6 +128,17 @@ def index():
         sources_err=status["sources_err"],
         clients=status["clients"],
         clients_err=status["clients_err"],
+    )
+
+
+@app.route("/api/server-time")
+def server_time():
+    now = dt.datetime.now(dt.timezone.utc)
+    return jsonify(
+        {
+            "server_now_utc_iso": now.isoformat().replace("+00:00", "Z"),
+            "server_now_epoch_ms": int(now.timestamp() * 1000),
+        }
     )
 
 
