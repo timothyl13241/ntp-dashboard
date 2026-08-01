@@ -11,20 +11,37 @@
     crossorigin="anonymous"
   />
   <style>
-    body { background-color: #f8f9fa; }
+    [data-bs-theme="light"] body { background-color: #f8f9fa; }
     .card { box-shadow: 0 2px 6px rgba(0,0,0,.08); }
     .table-sm td, .table-sm th { vertical-align: middle; }
     .badge-state { font-size: .85em; }
     pre.sources-raw { font-size: .8rem; }
+    #theme-toggle { min-width: 2.4rem; }
   </style>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('ntp-theme');
+        var theme = (saved === 'light' || saved === 'dark')
+          ? saved
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-bs-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container-fluid">
       <span class="navbar-brand mb-0 h1"><span role="img" aria-label="clock">&#128337;</span> Chrony NTP Dashboard</span>
-      <span class="navbar-text text-light">
-        Host: <strong>{{ hostname }}</strong>
-      </span>
+      <div class="d-flex align-items-center gap-3">
+        <span class="navbar-text text-light">
+          Host: <strong>{{ hostname }}</strong>
+        </span>
+        <button id="theme-toggle" class="btn btn-sm btn-outline-light" title="Switch theme">
+          <span id="theme-icon">&#x1F4BB;</span>
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -314,6 +331,61 @@
       }
       tick();
       setInterval(tick, 1000);
+    })();
+  </script>
+  <script>
+    (function () {
+      var html = document.documentElement;
+      var btn  = document.getElementById('theme-toggle');
+      var icon = document.getElementById('theme-icon');
+
+      function getSystemTheme() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      function updateButton() {
+        var saved = null;
+        try { saved = localStorage.getItem('ntp-theme'); } catch (e) {}
+        if (saved === 'dark') {
+          icon.textContent = '\uD83C\uDF19'; // 🌙
+          btn.title = 'Dark mode \u2014 click for system theme';
+        } else if (saved === 'light') {
+          icon.textContent = '\u2600\uFE0F'; // ☀️
+          btn.title = 'Light mode \u2014 click for dark mode';
+        } else {
+          icon.textContent = '\uD83D\uDCBB'; // 💻
+          btn.title = 'System theme \u2014 click for light mode';
+        }
+      }
+
+      btn.addEventListener('click', function () {
+        var saved = null;
+        try { saved = localStorage.getItem('ntp-theme'); } catch (e) {}
+        var next, theme;
+        if (!saved) {
+          next = 'light'; theme = 'light';
+        } else if (saved === 'light') {
+          next = 'dark'; theme = 'dark';
+        } else {
+          next = null; theme = getSystemTheme();
+        }
+        try {
+          if (next === null) { localStorage.removeItem('ntp-theme'); }
+          else { localStorage.setItem('ntp-theme', next); }
+        } catch (e) {}
+        html.setAttribute('data-bs-theme', theme);
+        updateButton();
+      });
+
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        var saved = null;
+        try { saved = localStorage.getItem('ntp-theme'); } catch (ex) {}
+        if (!saved) {
+          html.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+        }
+      });
+
+      updateButton();
     })();
   </script>
 </body>
